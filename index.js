@@ -4,11 +4,11 @@ const path = require("path")
 const fs = require("fs")
 
 const app = express()
-const {createUser, userList, user, userSearch, nonactive, active, edit, Admindashboard} = require('./Router/customer')
+const {createUser, userList, user,deleteUser, userSearch, nonactive, active, edit, Admindashboard} = require('./Router/customer')
 const {db} = require("./Router/database")
-const {attendAt,monthlyAttendance,eveningAttendance,morningAttendance} = require("./Router/attendance")
+const {attendAt,monthlyAttendance,eveningAttendance,morningAttendance,search} = require("./Router/attendance")
 const { intime,outTime, getIn, getOut, attendance } = require("./Router/punch")
-const {paymentAt, payment,paymentOf, paymentEdit, delPay, paymentOfAll} = require("./Router/payment")
+const {paymentAt, payment,paymentOf, paymentEdit, delPay, paymentOfAll, paymentcount} = require("./Router/payment")
 const {login, admin} = require("./Router/authentication")
 const {authAdmin, authCustomer} = require("./middleware/auth")
 const {dashboard,paymentofUser, punch} = require("./Router/dashboard")
@@ -33,18 +33,17 @@ const storage = multer.diskStorage({
     
           // Check if file already exists
           fs.access(filePath, fs.constants.F_OK, (err) => {
-            if (err) { // File doesn't exist, save with this filename
+            if (err) { 
               cb(null, fileName);
             } else {
-              // If file exists, create a new filename with a counter
               uniqueName = `${originalName.slice(0, -fileExtension.length)}-${counter}${fileExtension}`;
               counter++;
-              checkAndSave(uniqueName); // Recursively check the new filename
+              checkAndSave(uniqueName);
             }
           });
         };
     
-        checkAndSave(uniqueName); // Initiate the filename check
+        checkAndSave(uniqueName);
     }
 });
 const upload = multer({ storage: storage });
@@ -81,8 +80,9 @@ app.post("/admin/attendance", authAdmin, attendAt)
 app.get("/admin/attendance/monthly", authAdmin,monthlyAttendance)
 app.get("/admin/attendance/morning", authAdmin,morningAttendance)
 app.get("/admin/attendance/evening", authAdmin,eveningAttendance)
-
-
+app.get("/admin/attendance/:CUSTOMER_PROFILE_ID",authAdmin, search);
+app.delete("/admin/user/:userID", authAdmin, deleteUser);
+app.get("/admin/paymentcount", authAdmin,paymentcount);
 // Punch In/Out
 app.post("/admin/time/in", authAdmin, intime )
 app.post('/admin/time/out', authAdmin, outTime )
@@ -93,7 +93,6 @@ app.get("/admin/punch/out", authAdmin, getOut);
 app.post("/admin/user/non-active", authAdmin, nonactive)
 app.post("/admin/user/active", authAdmin, active)
 app.post("/admin/special-offers", authAdmin, specialoff)
-
 
 app.post("/admin/payment", authAdmin, paymentAt)
 app.get("/admin/payment", authAdmin, paymentOfAll)

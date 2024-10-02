@@ -1,15 +1,13 @@
 const Customer = require("../Schema/customer");
 const punch = require("../Schema/punch");
 
-// Function to convert date to YYYY-MM-DD format
 function formatDate(date) {
     let year = date.getFullYear();
-    let month = date.getMonth() + 1; // Month is 0-based
+    let month = date.getMonth() + 1; 
     let day = date.getDate();
     return `${year}-${month}-${day}`;
 }
 
-// Helper to calculate 12 PM time for a date
 function getNoonTime(date) {
     let noon = new Date(date);
     noon.setHours(12, 0, 0, 0);
@@ -18,25 +16,22 @@ function getNoonTime(date) {
 
 exports.morningAttendance = async (req, res) => {
     try {
-        let { date, page = 1, limit = 100 } = req.query; // Get page and limit from query parameters
+        let { date, page = 1, limit = 100 } = req.query; 
         limit = parseInt(limit);
         page = parseInt(page);
 
         if (!date) {
-            date = new Date(); // Default to today
+            date = new Date(); 
         } else {
             date = new Date(date);
         }
 
         let nextDate = new Date(date);
         nextDate.setDate(nextDate.getDate() + 1);
-
-        // Calculate the total count of UserPunch
         const totalCount = await punch.countDocuments({
             IN_TIME: { $gte: formatDate(date), $lt: getNoonTime(date) }
         });
 
-        // Get the paginated results
         const UserPunch = await punch.find({
             IN_TIME: { $gte: formatDate(date), $lt: getNoonTime(date) }
         })
@@ -63,7 +58,7 @@ exports.morningAttendance = async (req, res) => {
 
         return res.status(200).json({
             user: users,
-            totalCount, // Include total count for pagination
+            totalCount, 
             currentPage: page,
             totalPages: Math.ceil(totalCount / limit)
         });
@@ -74,7 +69,7 @@ exports.morningAttendance = async (req, res) => {
 
 exports.eveningAttendance = async (req, res) => {
     try {
-        let { date, page = 1, limit = 100 } = req.query; // Get page and limit from query parameters
+        let { date, page = 1, limit = 100 } = req.query; 
         limit = parseInt(limit);
         page = parseInt(page);
 
@@ -88,12 +83,10 @@ exports.eveningAttendance = async (req, res) => {
         let nextDate = new Date(date);
         nextDate.setDate(nextDate.getDate() + 1);
 
-        // Calculate the total count of UserPunch
         const totalCount = await punch.countDocuments({
             IN_TIME: { $gte: noonTime, $lt: nextDate }
         });
 
-        // Get the paginated results
         const UserPunch = await punch.find({
             IN_TIME: { $gte: noonTime, $lt: nextDate }
         })
@@ -120,7 +113,7 @@ exports.eveningAttendance = async (req, res) => {
 
         return res.status(200).json({
             user: users,
-            totalCount, // Include total count for pagination
+            totalCount,
             currentPage: page,
             totalPages: Math.ceil(totalCount / limit)
         });
@@ -128,12 +121,9 @@ exports.eveningAttendance = async (req, res) => {
         return res.status(500).json({ user: "Internal Server Error", err: err });
     }
 };
-
-
-// Monthly Attendance API
 exports.monthlyAttendance = async (req, res) => {
     try {
-        let { date, page = 1, limit = 50 } = req.query; // Default limit set to 50
+        let { date, page = 1, limit = 50 } = req.query;
 
         if (!date) {
             return res.status(400).json({ message: "Date is required." });
@@ -148,8 +138,8 @@ exports.monthlyAttendance = async (req, res) => {
         const userPunches = await punch.find({
             IN_TIME: { $gte: startOfMonth, $lt: endOfMonth }
         })
-        .skip((page - 1) * limit) // Pagination skip
-        .limit(parseInt(limit)) // Pagination limit
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
         .sort({ IN_TIME: 1 });
 
         if (!userPunches || userPunches.length === 0) {
@@ -224,3 +214,51 @@ exports.attendAt = async(req,res) => {
         return res.status(500).json({user:"Internal Server Error",err:err})
     }
 }
+
+exports.search = async (req, res) => {
+    try {
+        const { CUSTOMER_PROFILE_ID } = req.params; // Extract the CUSTOMER_PROFILE_ID from the request parameters
+
+        if (!CUSTOMER_PROFILE_ID) {
+            return res.status(400).json({ message: "Customer Profile ID is required." });
+        }
+
+        // Find the customer based on the provided CUSTOMER_PROFILE_ID
+        const customer = await Customer.findOne({ ID: CUSTOMER_PROFILE_ID });
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found." });
+        }
+
+        // Find all punch records associated with this customer
+        const userPunches = await punch.find({ CUSTOMER_PROFILE_ID });
+
+        if (!userPunches || userPunches.length === 0) {
+            return res.status(200).json({ message: "No attendance records found for this customer." });
+        }
+
+        // Create a response array with customer details and their punch records
+        let attendanceRecords = [];
+        for (const userPunch of userPunches) {
+            attendanceRecords.push({
+                ID: customer.ID,
+                NAME: customer.NAME,
+                PHONE: customer.PHONE,
+                IN_TIME: userPunch.IN_TIME,
+                OUT_TIME: userPunch.OUT_TIME,
+            });
+        }
+
+        // Send the response
+        return res.status(200).json({
+            customer: {
+                ID: customer.ID,
+                NAME: customer.NAME,
+                PHONE: customer.PHONE,
+            },
+            attendance: attendanceRecords
+        });
+    } catch (err) {
+        console.error("Error searching customer:", err);
+        return res.status(500).json({ message: "Internal Server Error", error: err });
+    }
+};

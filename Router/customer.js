@@ -140,7 +140,24 @@ exports.user = async(req,res) => {
         return res.status(500).json({error:err})
     }
 }
+exports.deleteUser = async (req, res) => {
+    const { userID } = req.params;
+    try {
+        // Find and delete the user
+        const user = await Customer.findOneAndDelete({ ID: userID });
 
+        if (!user) {
+            return res.status(404).json({ user: "User not found" });
+        }
+
+        // Delete associated payments
+        await Payment.deleteMany({ userID: userID }); // Adjust the query based on your schema
+
+        return res.status(200).json({ message: "User and associated payments deleted successfully" });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+};
 exports.userSearch = async(req,res) => {
     let {customerID, name, mobile, dob, userID} = req.query;
     let today = new Date();

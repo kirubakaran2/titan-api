@@ -75,52 +75,44 @@ exports.paymentAt = async(req,res) => {
     }
 }
 
-exports.payment = async(req,res) => {
-    let {id,type,amount,effective,end,balance} = req.body;
-    if(!id || !type || !amount || !effective || !end || !balance) {
-        return res.status(404).json({status:"All the fields are required like customer id, amount, payment type, effective date, end date and balance."})
+exports.payment = async (req, res) => {
+    let { id, type, amount, effective, end, balance } = req.body;
+    
+    if (!id || !type || !amount || !effective || !end || !balance) {
+        return res.status(404).json({
+            status: "All the fields are required like customer id, amount, payment type, effective date, end date, and balance."
+        });
     }
 
     try {
         let now = new Date();
-        
-        if(typeof(effective) === 'string') {
-            effective = new Date(effective)
+
+        if (typeof (effective) === 'string') {
+            effective = new Date(effective);
         }
 
-        if(typeof(end) === "string") {
-            end = new Date(end)
+        if (typeof (end) === "string") {
+            end = new Date(end);
         }
 
-        let thisMonth = TimeMonth(now);
-        let PrevMonth = TimeNextMonth(now);
-        
-        let tmp = await Payment.find({CUSTOMER_PROFILE_ID:id, PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth}});
-        console.log(tmp.length) 
-        if(tmp.length > 0) {
-            return res.status(301).json({status:`So many payment added for this ${id}. So can't add for this user, but you can edit the detail of the user payment.`})
-        }
-
+        // Removed the check for existing payments
         const pay = new Payment({
             CUSTOMER_PROFILE_ID: id,
             PAYMENT_TYPE: type,
             PAYMENT_AMOUNT: amount,
             EFFECTIVE_DATE: effective,
-            END_DATE:end,
-            PAYMENT_BALANCE:balance,
+            END_DATE: end,
+            PAYMENT_BALANCE: balance,
             PAYMENT_DATE: now
         });
 
-        pay.save().then(() => {
-            return res.status(200).json({status:`Payment added for this user ${id}`})
-        }).catch((err) => {
-            return res.status(500).json({status:"Internal Server Error", error:err})
-        })
+        await pay.save();
+        return res.status(200).json({ status: `Payment added for this user ${id}` });
+    } catch (err) {
+        return res.status(500).json({ status: "Internal Server Error", error: err });
     }
-    catch(err) {
-        return res.status(500).json({status:"Internal Server Error", error: err})
-    }
-}
+};
+
 
 exports.paymentEdit = async(req,res) => {
     let {id,amount,end,balance} = req.body;
@@ -157,7 +149,6 @@ exports.paymentEdit = async(req,res) => {
         return res.status(500).json({status:"Internal Server Error", error: err})
     }
 }
-
 exports.paymentOf = async(req,res) => {
     const {userID} = req.params;
     console.log(userID);
@@ -175,15 +166,12 @@ exports.paymentOf = async(req,res) => {
         return res.status(404).json({status:"No payment on this month for the user."})
     return res.status(200).json({payment:payment});
 }
-
 exports.delPay = async(req,res) => {
     let {_id} = req.params;
     await Payment.findOneAndDelete({_id:_id}).then(() => {
         return res.status(200).json({status:"Deleted"})
     }).catch(() => {return res.status(500).json({status:"Internal Server Error"})})
 }
-
-
 exports.paymentOfAll = async(req,res) => {
     let {page,date} = req.query;
     page = page === undefined ? 0 : page*50;
@@ -235,3 +223,71 @@ exports.paymentOfAll = async(req,res) => {
         return res.status(500).json({status:"Something went wrong"});
     }
 }
+
+exports.paymentcount = async (req, res) => {
+    let { date } = req.query;
+
+    try {
+        let now = new Date();
+        if (date) now = new Date(date);
+        let thisMonth = TimeMonth(now);
+        let PrevMonth = TimeNextMonth(now);
+
+        // Aggregation pipeline to count paid customers and get their names
+        const paidUsers = await Payment.aggregate([
+            {
+                $match: {
+                    PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth }
+                }
+            },
+            {
+                $group: {
+                    _id: "$CUSTOMER_PROFILE_ID",
+                    paymentCount: { $sum: 1 }
+                }
+            },
+            {
+                $lookup: {
+                    from: "customers", // Ensure this matches the actual name of your Customer collection
+                    localField: "_id",
+                    foreignField: "ID",
+                    as: "customerDetails"
+                }
+            },
+            {
+                $unwind: "$customerDetails"
+            },
+            {
+                $group: {
+                    _id: "$customerDetails.ID", // Group by customer ID to ensure uniqueness
+                    NAME: { $first: "$customerDetails.NAME" },
+                    paymentCount: { $first: "$paymentCount" } // Keep the payment count
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    CUSTOMER_PROFILE_ID: "$_id",
+                    NAME: 1,
+                    paymentCount: 1
+                }
+            }
+        ]);
+
+        const paidCount = paidUsers.length;
+
+        // Count all customers
+        const totalUsers = await Customer.countDocuments({});
+        const unpaidCount = totalUsers - paidCount;
+
+        return res.status(200).json({
+            totalUsers,
+            paidCount,
+            unpaidCount,
+            paidUsers
+        });
+    } catch (e) {
+        return res.status(500).json({ status: "Something went wrong", error: e.message });
+    }
+}
+
