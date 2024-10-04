@@ -149,23 +149,72 @@ exports.paymentEdit = async(req,res) => {
         return res.status(500).json({status:"Internal Server Error", error: err})
     }
 }
-exports.paymentOf = async(req,res) => {
-    const {userID} = req.params;
+// exports.paymentOf = async(req,res) => {
+//     const {userID} = req.params;
+//     console.log(userID);
+//     let today = new Date();
+//     const payment = await Payment.find({CUSTOMER_PROFILE_ID:userID,
+//         $expr: {
+//             $and: [
+//                 { $eq: [{ $month: "$PAYMENT_DATE" }, today.getMonth() + 1] },
+//                 { $eq: [{ $year: "$PAYMENT_DATE" }, today.getFullYear()] }
+//             ]
+//         }
+//     })
+
+//     if(!payment)
+//         return res.status(404).json({status:"No payment on this month for the user."})
+//     return res.status(200).json({payment:payment});
+// }
+exports.paymentOf = async (req, res) => {
+    const { userID } = req.params;
     console.log(userID);
     let today = new Date();
-    const payment = await Payment.find({CUSTOMER_PROFILE_ID:userID,
-        $expr: {
-            $and: [
-                { $eq: [{ $month: "$PAYMENT_DATE" }, today.getMonth() + 1] },
-                { $eq: [{ $year: "$PAYMENT_DATE" }, today.getFullYear()] }
-            ]
-        }
-    })
+    let startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // Start of the current month
 
-    if(!payment)
-        return res.status(404).json({status:"No payment on this month for the user."})
-    return res.status(200).json({payment:payment});
-}
+    try {
+        const user = await Customer.findOne({ ID: userID });
+        if (!user) {
+            return res.status(404).json({ status: "User not found." });
+        }
+
+        const payment = await Payment.find({
+            CUSTOMER_PROFILE_ID: userID,
+            PAYMENT_DATE: { $gte: startOfMonth, $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1) } // End of the month
+        });
+
+        if (!payment || payment.length === 0) {
+            return res.status(404).json({ status: "No payment this month for the user." });
+        }
+
+        const response = {
+            USER: {
+                ID: user.ID,
+                NAME: user.NAME,
+                DOB: user.DOB,
+                PHONE: user.PHONE,
+                EMAIL: user.EMAIL,
+                ADDRESS: user.ADDRESS,
+                IMAGE_PATH: user.IMAGE_PATH
+            },
+            PAYMENTS: payment.map(pay => ({
+                PAYMENT_STATUS: "Paid",
+                PAYMENT_TYPE: pay.PAYMENT_TYPE,
+                PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
+                EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
+                END_DATE: pay.END_DATE,
+                PAYMENT_DATE: pay.PAYMENT_DATE,
+                PAYMENT_BALANCE: pay.PAYMENT_BALANCE
+            }))
+        };
+
+        return res.status(200).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: "An error occurred.", error: error.message });
+    }
+};
+
 exports.delPay = async(req,res) => {
     let {_id} = req.params;
     await Payment.findOneAndDelete({_id:_id}).then(() => {
@@ -291,3 +340,98 @@ exports.paymentcount = async (req, res) => {
     }
 }
 
+exports.paymentOfPaid = async (req, res) => {
+    let { page = 0, date } = req.query;
+    page = parseInt(page) * 50; // Convert page to an integer and multiply by 50 for offset
+
+    try {
+        let now = new Date();
+        if (date) now = new Date(date);
+        let thisMonth = TimeMonth(now);
+        let PrevMonth = TimeNextMonth(now);
+
+        // Fetch the specified page of customers, excluding unnecessary fields
+        const customers = await Customer.find({}, { PASSWORD: 0, EMAIL: 0, ADDRESS: 0 })
+            .sort({ ID: "asc" })
+            .skip(page)
+            .limit(500);
+
+        // Fetch payments in a single query
+        const payments = await Payment.find({
+            PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth }
+        });
+
+        const paymentMap = new Map();
+        payments.forEach(pay => {
+            paymentMap.set(pay.CUSTOMER_PROFILE_ID, pay);
+        });
+
+        let paidCustomers = [];
+        let paidCount = 0;
+
+        // Match payments with customers
+        for (let user of customers) {
+            const pay = paymentMap.get(user.ID);
+
+            if (pay) {
+                paidCustomers.push({
+                    ID: user.ID,
+                    NAME: user.NAME,
+                    DOB: user.DOB,
+                    PHONE: user.PHONE,
+                    IMAGE_PATH: user.IMAGE_PATH,
+                    PAYMENT_STATUS: "Paid",
+                    PAYMENT_TYPE: pay.PAYMENT_TYPE,
+                    PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
+                    PAYMENT_DATE: pay.PAYMENT_DATE,
+                    PAYMENT_BALANCE: pay.PAYMENT_BALANCE
+                });
+                paidCount++;
+            }
+        }
+
+        // Get the total number of paid users for further pagination if needed
+        const totalPaidUsers = payments.length; // This is an approximation
+
+        return res.status(200).json({ customer: paidCustomers, totalPaidCount: totalPaidUsers });
+    } catch (e) {
+        return res.status(500).json({ status: "Something went wrong" });
+    }
+};
+
+
+exports.paymentOfUnpaid = async (req, res) => {
+    let { page, date } = req.query;
+    page = page === undefined ? 0 : page * 50;
+
+    const customer = await Customer.find({}, { PASSWORD: 0 }, { skip: page, limit: 50 }).sort({ ID: "asc" });
+    let customers = [];
+
+    try {
+        let now = new Date();
+        if (date) now = new Date(date);
+        let thisMonth = TimeMonth(now);
+        let PrevMonth = TimeNextMonth(now);
+
+        for (let user of customer) {
+            let pay = await Payment.findOne({ CUSTOMER_PROFILE_ID: user.ID, PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth } });
+
+            if (!pay) {
+                let details = {
+                    ID: user.ID,
+                    NAME: user.NAME,
+                    DOB: user.DOB,
+                    PHONE: user.PHONE,
+                    EMAIL: user.EMAIL,
+                    ADDRESS: user.ADDRESS,
+                    IMAGE_PATH: user.IMAGE_PATH,
+                    PAYMENT_STATUS: "Not paid"
+                };
+                customers.push(details);
+            }
+        }
+        return res.status(200).json({ customer: customers });
+    } catch (e) {
+        return res.status(500).json({ status: "Something went wrong" });
+    }
+};
