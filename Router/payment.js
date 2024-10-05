@@ -187,6 +187,9 @@ exports.paymentOf = async (req, res) => {
             return res.status(404).json({ status: "No payment this month for the user." });
         }
 
+        // Assuming you want to return the first payment if there are multiple
+        const firstPayment = payment[0];
+
         const response = {
             USER: {
                 ID: user.ID,
@@ -195,17 +198,15 @@ exports.paymentOf = async (req, res) => {
                 PHONE: user.PHONE,
                 EMAIL: user.EMAIL,
                 ADDRESS: user.ADDRESS,
-                IMAGE_PATH: user.IMAGE_PATH
-            },
-            PAYMENTS: payment.map(pay => ({
+                IMAGE_PATH: user.IMAGE_PATH,
                 PAYMENT_STATUS: "Paid",
-                PAYMENT_TYPE: pay.PAYMENT_TYPE,
-                PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
-                EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
-                END_DATE: pay.END_DATE,
-                PAYMENT_DATE: pay.PAYMENT_DATE,
-                PAYMENT_BALANCE: pay.PAYMENT_BALANCE
-            }))
+                PAYMENT_TYPE: firstPayment.PAYMENT_TYPE,
+                PAYMENT_AMOUNT: firstPayment.PAYMENT_AMOUNT,
+                EFFECTIVE_DATE: firstPayment.EFFECTIVE_DATE,
+                END_DATE: firstPayment.END_DATE,
+                PAYMENT_DATE: firstPayment.PAYMENT_DATE,
+                PAYMENT_BALANCE: firstPayment.PAYMENT_BALANCE
+            }
         };
 
         return res.status(200).json(response);
