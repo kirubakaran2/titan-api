@@ -8,11 +8,12 @@ const {createUser, userList, user,deleteUser, userSearch, nonactive, active, edi
 const {db} = require("./Router/database")
 const {attendAt,monthlyAttendance,eveningAttendance,morningAttendance,search} = require("./Router/attendance")
 const { intime,outTime, getIn, getOut, attendance } = require("./Router/punch")
-const {paymentAt, payment,paymentOf, paymentEdit, delPay, paymentOfAll, paymentcount} = require("./Router/payment")
+const {paymentAt, payment,paymentOf, paymentEdit, delPay, paymentOfAll, paymentOfUnpaid,paymentOfPaid, paymentcount} = require("./Router/payment")
 const {login, admin} = require("./Router/authentication")
 const {authAdmin, authCustomer} = require("./middleware/auth")
 const {dashboard,paymentofUser, punch} = require("./Router/dashboard")
 const {specialoff} = require("./Router/offer")
+const {createMeasurement,getMeasurement,updateMeasurement,deleteMeasurement}= require("./Router/customer")
 app.use(express.json())
 app.use(cors({origin:"*"}));
 
@@ -96,6 +97,8 @@ app.post("/admin/special-offers", authAdmin, specialoff)
 
 app.post("/admin/payment", authAdmin, paymentAt)
 app.get("/admin/payment", authAdmin, paymentOfAll)
+app.get("/admin/paidusers", authAdmin, paymentOfPaid)
+app.get("/admin/unpaidusers", authAdmin,paymentOfUnpaid)
 app.post("/admin/payment/add", authAdmin, payment)
 app.patch("/admin/payment/edit", authAdmin, paymentEdit)
 app.get("/admin/payment/:userID", authAdmin, paymentOf)
@@ -109,5 +112,12 @@ app.get("/customer/payment", authCustomer, paymentofUser)
 app.get("/customer/punch", authCustomer, punch)
 app.patch("/admin/user/edit/:userId",authAdmin,upload.single('image'), edit);
 app.patch("/customer/edit/:userId", authCustomer,upload.single('image'), edit);
+
+//measurement
+app.post("/measurement", authAdmin,createMeasurement);
+app.get("/measurement/:id", authAdmin,getMeasurement);
+app.patch("/measurement/:id", authAdmin,updateMeasurement);
+app.delete("/measurement/:id", authAdmin,deleteMeasurement);
+
 
 app.listen(8080,() => {console.log("Server started")})

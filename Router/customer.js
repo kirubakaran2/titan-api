@@ -1,8 +1,10 @@
 const Customer = require("../Schema/customer");
 const Payment = require("../Schema/payment")
 const Punch = require("../Schema/punch")
+const CustomerMeasurement = require("../Schema/measurement");
 const {messager} = require("./sender")
 const bcrypt = require("bcryptjs")
+const jwt = require('jsonwebtoken');
 
 
 exports.createUser = async (req,res) => {
@@ -245,3 +247,116 @@ exports.active = async(req,res) => {
         return res.json({status:`User ${user.NAME} has been active now. You can enjoy our gym services.`})
     });
 }
+
+
+exports.createMeasurement = async (req, res) => {
+    let { userID, height, chest, weight, waist, bodyfat, hip } = req.body;
+
+    // Check if all required fields are provided
+    if (!userID || !height || !chest || !weight || !waist || !bodyfat || !hip) {
+        return res.status(404).json({
+            status: "All the fields are required like userID, height, chest, weight, waist, bodyfat, and hip."
+        });
+    }
+
+    try {
+        let now = new Date();
+
+        // Create a new measurement entry
+        const measurement = new CustomerMeasurement({
+            userID,
+            height,
+            chest,
+            weight,
+            waist,
+            bodyfat,
+            hip,
+            createdDate: now
+        });
+
+        await measurement.save();
+
+        return res.status(200).json({ status: `Measurement added for user ${userID}` });
+    } catch (err) {
+        // Handle any errors
+        return res.status(500).json({ status: "Internal Server Error", error: err.message });
+    }
+};
+
+exports.getMeasurement = async (req, res) => {
+    const userID = req.params.userID;  // Get userID from route parameter
+
+    try {
+        // Find measurements by userID
+        const measurements = await CustomerMeasurement.find({ userID });
+
+        // If no measurements found
+        if (!measurements || measurements.length === 0) {
+            return res.status(404).json({ status: 'Not Found', message: 'No measurements found for this user' });
+        }
+
+        // Return the measurement data
+        return res.status(200).json({
+            status: 'Success',
+            message: 'Measurements retrieved successfully',
+            data: measurements
+        });
+    } catch (err) {
+        // Handle errors
+        return res.status(500).json({ status: 'Error', message: err.message });
+    }
+};
+
+exports.updateMeasurement = async (req, res) => {
+    const { userID } = req.params;
+    const { height, chest, weight, waist, bodyfat, hip } = req.body;
+
+    // Validate fields - Ensure they are numbers and not 0 or invalid
+    if (height <= 0 || chest <= 0) {
+        return res.status(400).json({ status: "Invalid height or chest value. It should be greater than zero." });
+    }
+
+    try {
+        const measurement = await CustomerMeasurement.findOne({ userID });
+
+        if (!measurement) {
+            return res.status(404).json({ status: "Measurement record not found for this user." });
+        }
+
+        // Update measurement
+        measurement.height = height || measurement.height;
+        measurement.chest = chest || measurement.chest;
+        measurement.weight = weight || measurement.weight;
+        measurement.waist = waist || measurement.waist;
+        measurement.bodyfat = bodyfat || measurement.bodyfat;
+        measurement.hip = hip || measurement.hip;
+
+        // Save updated measurement
+        const updatedMeasurement = await measurement.save();
+
+        return res.status(200).json({
+            status: "Measurement updated successfully",
+            data: updatedMeasurement,
+        });
+    } catch (err) {
+        return res.status(500).json({ status: "Internal Server Error", error: err.message });
+    }
+};
+
+
+exports.deleteMeasurement = async (req, res) => {
+    const { userID } = req.params;  // Get userID from the request params
+
+    try {
+        // Delete all measurement records related to the userID
+        const result = await CustomerMeasurement.deleteMany({ userID });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ status: "No measurement records found for this user." });
+        }
+
+        return res.status(200).json({ status: "All measurement records for the user deleted successfully." });
+    } catch (err) {
+        return res.status(500).json({ status: "Internal Server Error", error: err.message });
+    }
+};

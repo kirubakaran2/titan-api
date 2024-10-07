@@ -214,6 +214,9 @@ exports.paymentOf = async (req, res) => {
         return res.status(500).json({ status: "An error occurred.", error: error.message });
     }
 };
+
+
+
 exports.delPay = async(req,res) => {
     let {_id} = req.params;
     await Payment.findOneAndDelete({_id:_id}).then(() => {
