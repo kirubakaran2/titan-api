@@ -77,8 +77,9 @@ exports.paymentAt = async(req,res) => {
 
 exports.payment = async (req, res) => {
     let { id, type, amount, effective, end, balance } = req.body;
-    
-    if (!id || !type || !amount || !effective || !end || !balance) {
+
+    // Check for required fields but allow balance to be 0
+    if (!id || !type || !amount || !effective || !end || (balance === undefined || balance === null)) {
         return res.status(404).json({
             status: "All the fields are required like customer id, amount, payment type, effective date, end date, and balance."
         });
@@ -95,7 +96,6 @@ exports.payment = async (req, res) => {
             end = new Date(end);
         }
 
-        // Removed the check for existing payments
         const pay = new Payment({
             CUSTOMER_PROFILE_ID: id,
             PAYMENT_TYPE: type,
