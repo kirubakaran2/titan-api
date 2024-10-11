@@ -11,13 +11,16 @@ const MeasurementSchema = new Schema({
     weight: {
         type: Number,default: null, 
     },
-    waist: {
+    shoulder: {
         type: Number,default: null, 
     },
-    bodyfat: {
+    biceps: {
         type: Number,default: null, 
     },
     hip: {
+        type: Number,default: null, 
+    },
+    leg: {
         type: Number,default: null, 
     },
     date: {

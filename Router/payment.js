@@ -114,6 +114,7 @@ exports.payment = async (req, res) => {
 };
 
 
+
 exports.paymentEdit = async(req,res) => {
     let {id,amount,end,balance} = req.body;
     if(!id || !amount || !end || balance===undefined) {
@@ -214,8 +215,6 @@ exports.paymentOf = async (req, res) => {
         return res.status(500).json({ status: "An error occurred.", error: error.message });
     }
 };
-
-
 
 exports.delPay = async(req,res) => {
     let {_id} = req.params;

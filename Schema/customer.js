@@ -19,5 +19,4 @@ const UserSchema = Schema({
 })
 
 const Customer = new model('customers',UserSchema);
-
 module.exports =  Customer;

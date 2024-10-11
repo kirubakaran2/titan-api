@@ -250,27 +250,26 @@ exports.active = async(req,res) => {
 
 
 exports.createMeasurement = async (req, res) => {
-    let { userID, height, chest, weight, waist, bodyfat, hip } = req.body;
+    let { userID, height, chest, weight, shoulder, biceps, hip, leg } = req.body;
 
-    // Check if all required fields are provided
-    if (!userID || !height || !chest || !weight || !waist || !bodyfat || !hip) {
+    if (!userID || !height || !chest || !weight || !shoulder || !biceps || !hip  || !leg) {
         return res.status(404).json({
-            status: "All the fields are required like userID, height, chest, weight, waist, bodyfat, and hip."
+            status: "All the fields are required like userID, height, chest, weight, shoulder, biceps, hip and leg"
         });
     }
 
     try {
         let now = new Date();
 
-        // Create a new measurement entry
         const measurement = new CustomerMeasurement({
             userID,
             height,
             chest,
             weight,
-            waist,
-            bodyfat,
+            shoulder,
+            biceps,
             hip,
+            leg,
             createdDate: now
         });
 
@@ -278,40 +277,34 @@ exports.createMeasurement = async (req, res) => {
 
         return res.status(200).json({ status: `Measurement added for user ${userID}` });
     } catch (err) {
-        // Handle any errors
         return res.status(500).json({ status: "Internal Server Error", error: err.message });
     }
 };
 
 exports.getMeasurement = async (req, res) => {
-    const userID = req.params.userID;  // Get userID from route parameter
+    const userID = req.params.userID;  
 
     try {
-        // Find measurements by userID
         const measurements = await CustomerMeasurement.find({ userID });
 
-        // If no measurements found
         if (!measurements || measurements.length === 0) {
             return res.status(404).json({ status: 'Not Found', message: 'No measurements found for this user' });
         }
 
-        // Return the measurement data
         return res.status(200).json({
             status: 'Success',
             message: 'Measurements retrieved successfully',
             data: measurements
         });
     } catch (err) {
-        // Handle errors
         return res.status(500).json({ status: 'Error', message: err.message });
     }
 };
 
 exports.updateMeasurement = async (req, res) => {
     const { userID } = req.params;
-    const { height, chest, weight, waist, bodyfat, hip } = req.body;
+    const { height, chest, weight, shoulder, biceps, hip ,leg} = req.body;
 
-    // Validate fields - Ensure they are numbers and not 0 or invalid
     if (height <= 0 || chest <= 0) {
         return res.status(400).json({ status: "Invalid height or chest value. It should be greater than zero." });
     }
@@ -323,15 +316,15 @@ exports.updateMeasurement = async (req, res) => {
             return res.status(404).json({ status: "Measurement record not found for this user." });
         }
 
-        // Update measurement
         measurement.height = height || measurement.height;
         measurement.chest = chest || measurement.chest;
         measurement.weight = weight || measurement.weight;
-        measurement.waist = waist || measurement.waist;
-        measurement.bodyfat = bodyfat || measurement.bodyfat;
+        measurement.shoulder = shoulder || measurement.shoulder;
+        measurement.biceps = biceps || measurement.biceps;
         measurement.hip = hip || measurement.hip;
+        measurement.leg = leg || measurement.leg;
 
-        // Save updated measurement
+
         const updatedMeasurement = await measurement.save();
 
         return res.status(200).json({
@@ -345,10 +338,9 @@ exports.updateMeasurement = async (req, res) => {
 
 
 exports.deleteMeasurement = async (req, res) => {
-    const { userID } = req.params;  // Get userID from the request params
+    const { userID } = req.params; 
 
     try {
-        // Delete all measurement records related to the userID
         const result = await CustomerMeasurement.deleteMany({ userID });
 
         if (result.deletedCount === 0) {

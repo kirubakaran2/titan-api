@@ -217,26 +217,21 @@ exports.attendAt = async(req,res) => {
 
 exports.search = async (req, res) => {
     try {
-        const { CUSTOMER_PROFILE_ID } = req.params; // Extract the CUSTOMER_PROFILE_ID from the request parameters
+        const { CUSTOMER_PROFILE_ID } = req.params; 
 
         if (!CUSTOMER_PROFILE_ID) {
             return res.status(400).json({ message: "Customer Profile ID is required." });
         }
-
-        // Find the customer based on the provided CUSTOMER_PROFILE_ID
         const customer = await Customer.findOne({ ID: CUSTOMER_PROFILE_ID });
         if (!customer) {
             return res.status(404).json({ message: "Customer not found." });
         }
-
-        // Find all punch records associated with this customer
         const userPunches = await punch.find({ CUSTOMER_PROFILE_ID });
 
         if (!userPunches || userPunches.length === 0) {
             return res.status(200).json({ message: "No attendance records found for this customer." });
         }
 
-        // Create a response array with customer details and their punch records
         let attendanceRecords = [];
         for (const userPunch of userPunches) {
             attendanceRecords.push({
@@ -248,7 +243,6 @@ exports.search = async (req, res) => {
             });
         }
 
-        // Send the response
         return res.status(200).json({
             customer: {
                 ID: customer.ID,
