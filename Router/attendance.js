@@ -1,5 +1,6 @@
 const Customer = require("../Schema/customer");
 const punch = require("../Schema/punch");
+const Payment = require("../Schema/payment");
 
 function formatDate(date) {
     let year = date.getFullYear();
@@ -32,26 +33,38 @@ exports.morningAttendance = async (req, res) => {
             IN_TIME: { $gte: formatDate(date), $lt: getNoonTime(date) }
         });
 
-        const UserPunch = await punch.find({
+        const userPunches = await punch.find({
             IN_TIME: { $gte: formatDate(date), $lt: getNoonTime(date) }
         })
         .skip((page - 1) * limit)
         .limit(limit);
 
-        if (!UserPunch || UserPunch.length === 0) {
+        if (!userPunches || userPunches.length === 0) {
             return res.status(200).json({ user: "No users present in the morning." });
         }
 
         let users = [];
-        for (const userPunch of UserPunch) {
+        for (const userPunch of userPunches) {
             let customer = await Customer.findOne({ ID: userPunch.CUSTOMER_PROFILE_ID });
             if (customer) {
+                let payment = await Payment.findOne({
+                    CUSTOMER_PROFILE_ID: userPunch.CUSTOMER_PROFILE_ID,
+                    PAYMENT_DATE: { $gte: formatDate(date), $lt: nextDate }
+                });
+
                 users.push({
                     ID: customer.ID,
                     NAME: customer.NAME,
                     PHONE: customer.PHONE,
                     IN_TIME: userPunch.IN_TIME,
-                    OUT_TIME: userPunch.OUT_TIME
+                    OUT_TIME: userPunch.OUT_TIME,
+                    PAYMENT_STATUS: payment ? "Paid" : "Not paid",
+                    PAYMENT_TYPE: payment ? payment.PAYMENT_TYPE : null,
+                    PAYMENT_AMOUNT: payment ? payment.PAYMENT_AMOUNT : null,
+                    EFFECTIVE_DATE: payment ? payment.EFFECTIVE_DATE : null,
+                    END_DATE: payment ? payment.END_DATE : null,
+                    PAYMENT_DATE: payment ? payment.PAYMENT_DATE : null,
+                    PAYMENT_BALANCE: payment ? payment.PAYMENT_BALANCE : null,
                 });
             }
         }
@@ -66,6 +79,7 @@ exports.morningAttendance = async (req, res) => {
         return res.status(500).json({ user: "Internal Server Error", err: err });
     }
 };
+
 
 exports.eveningAttendance = async (req, res) => {
     try {
@@ -87,26 +101,38 @@ exports.eveningAttendance = async (req, res) => {
             IN_TIME: { $gte: noonTime, $lt: nextDate }
         });
 
-        const UserPunch = await punch.find({
+        const userPunches = await punch.find({
             IN_TIME: { $gte: noonTime, $lt: nextDate }
         })
         .skip((page - 1) * limit)
         .limit(limit);
 
-        if (!UserPunch || UserPunch.length === 0) {
+        if (!userPunches || userPunches.length === 0) {
             return res.status(200).json({ user: "No users present in the evening." });
         }
 
         let users = [];
-        for (const userPunch of UserPunch) {
+        for (const userPunch of userPunches) {
             let customer = await Customer.findOne({ ID: userPunch.CUSTOMER_PROFILE_ID });
             if (customer) {
+                let payment = await Payment.findOne({
+                    CUSTOMER_PROFILE_ID: userPunch.CUSTOMER_PROFILE_ID,
+                    PAYMENT_DATE: { $gte: formatDate(date), $lt: nextDate }
+                });
+
                 users.push({
                     ID: customer.ID,
                     NAME: customer.NAME,
                     PHONE: customer.PHONE,
                     IN_TIME: userPunch.IN_TIME,
-                    OUT_TIME: userPunch.OUT_TIME
+                    OUT_TIME: userPunch.OUT_TIME,
+                    PAYMENT_STATUS: payment ? "Paid" : "Not paid",
+                    PAYMENT_TYPE: payment ? payment.PAYMENT_TYPE : null,
+                    PAYMENT_AMOUNT: payment ? payment.PAYMENT_AMOUNT : null,
+                    EFFECTIVE_DATE: payment ? payment.EFFECTIVE_DATE : null,
+                    END_DATE: payment ? payment.END_DATE : null,
+                    PAYMENT_DATE: payment ? payment.PAYMENT_DATE : null,
+                    PAYMENT_BALANCE: payment ? payment.PAYMENT_BALANCE : null,
                 });
             }
         }
@@ -121,6 +147,7 @@ exports.eveningAttendance = async (req, res) => {
         return res.status(500).json({ user: "Internal Server Error", err: err });
     }
 };
+
 exports.monthlyAttendance = async (req, res) => {
     try {
         let { date, page = 1, limit = 50 } = req.query;
@@ -131,6 +158,7 @@ exports.monthlyAttendance = async (req, res) => {
         date = new Date(date);
         let startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
         let endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+        
         const totalCount = await punch.countDocuments({
             IN_TIME: { $gte: startOfMonth, $lt: endOfMonth }
         });
@@ -150,26 +178,40 @@ exports.monthlyAttendance = async (req, res) => {
         for (const userPunch of userPunches) {
             let customer = await Customer.findOne({ ID: userPunch.CUSTOMER_PROFILE_ID });
             if (customer) {
+                let payment = await Payment.findOne({
+                    CUSTOMER_PROFILE_ID: userPunch.CUSTOMER_PROFILE_ID,
+                    PAYMENT_DATE: { $gte: startOfMonth, $lt: endOfMonth }
+                });
+
                 users.push({
                     ID: customer.ID,
                     NAME: customer.NAME,
                     PHONE: customer.PHONE,
                     IN_TIME: userPunch.IN_TIME,
-                    OUT_TIME: userPunch.OUT_TIME
+                    OUT_TIME: userPunch.OUT_TIME,
+                    PAYMENT_STATUS: payment ? "Paid" : "Not paid",
+                    PAYMENT_TYPE: payment ? payment.PAYMENT_TYPE : null,
+                    PAYMENT_AMOUNT: payment ? payment.PAYMENT_AMOUNT : null,
+                    EFFECTIVE_DATE: payment ? payment.EFFECTIVE_DATE : null,
+                    END_DATE: payment ? payment.END_DATE : null,
+                    PAYMENT_DATE: payment ? payment.PAYMENT_DATE : null,
+                    PAYMENT_BALANCE: payment ? payment.PAYMENT_BALANCE : null,
                 });
             }
         }
+
         return res.status(200).json({
             total: totalCount,
             page: parseInt(page),
             limit: parseInt(limit),
-            user: users
+            users: users
         });
     } catch (err) {
         console.error("Error fetching monthly attendance:", err);
         return res.status(500).json({ user: "Internal Server Error", err: err });
     }
 };
+
 
 
 exports.attendAt = async(req,res) => {
