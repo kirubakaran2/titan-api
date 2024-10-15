@@ -2,7 +2,7 @@ const mongoose = require("mongoose")
 const punch = require("../Schema/punch")
 const Customer = require("../Schema/customer")
 const {messager} = require("./sender")
-
+const Payment = require("../Schema/payment");
 exports.intime = async(req,res) => {
     let now = new Date();
     const {id} = req.body;
@@ -154,27 +154,39 @@ exports.getOut = async(req,res) => {
     }
 }
 
-exports.attendance = async(req,res) => {
-    let {page,date} = req.query;
+exports.attendance = async (req, res) => {
+    let { page, date } = req.query;
 
-    page = page === undefined ? 0 : page*50;
-    const customer = await Customer.find({},{PASSWORD:0},{skip:page,limit:50}).sort({ID:"asc"});
-    let customers = new Array();
+    page = page === undefined ? 0 : page * 50;
+    const customer = await Customer.find({}, { PASSWORD: 0 }, { skip: page, limit: 50 }).sort({ ID: "asc" });
+    let customers = [];
+
     try {
         let today = new Date();
-        if(date) {
+        if (date) {
             today = new Date(date);
         }
-        for(let user of customer) {
-            let timing = await punch.findOne({CUSTOMER_PROFILE_ID:user.ID,
+
+        let thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        let nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
+        for (let user of customer) {
+            let timing = await punch.findOne({
+                CUSTOMER_PROFILE_ID: user.ID,
                 $expr: {
                     $and: [
                         { $eq: [{ $dayOfMonth: "$CREATED_DATE" }, today.getDate()] },
                         { $eq: [{ $month: "$CREATED_DATE" }, today.getMonth() + 1] },
-                        { $eq: [{ $year: "$CREATED_DATE"}, today.getUTCFullYear()]}
+                        { $eq: [{ $year: "$CREATED_DATE" }, today.getUTCFullYear()] }
                     ]
                 }
             });
+
+            let pay = await Payment.findOne({
+                CUSTOMER_PROFILE_ID: user.ID,
+                PAYMENT_DATE: { $gte: thisMonth, $lt: nextMonth }
+            });
+
             let details = {
                 ID: user.ID,
                 NAME: user.NAME,
@@ -183,15 +195,23 @@ exports.attendance = async(req,res) => {
                 EMAIL: user.EMAIL,
                 ADDRESS: user.ADDRESS,
                 IMAGE_PATH: user.IMAGE_PATH,
-                IN_TIME: timing===null?null:timing.IN_TIME,
-                OUT_TIME: timing===null?null:timing.OUT_TIME,
-                ATTENDANCE: timing === null ? 'absent' : 'present'
-            }
+                IN_TIME: timing ? timing.IN_TIME : null,
+                OUT_TIME: timing ? timing.OUT_TIME : null,
+                ATTENDANCE: timing ? 'present' : 'absent',
+                PAYMENT_STATUS: pay ? "Paid" : "Not paid",
+                PAYMENT_TYPE: pay ? pay.PAYMENT_TYPE : null,
+                PAYMENT_AMOUNT: pay ? pay.PAYMENT_AMOUNT : null,
+                EFFECTIVE_DATE: pay ? pay.EFFECTIVE_DATE : null,
+                END_DATE: pay ? pay.END_DATE : null,
+                PAYMENT_DATE: pay ? pay.PAYMENT_DATE : null,
+                PAYMENT_BALANCE: pay ? pay.PAYMENT_BALANCE : null,
+            };
+
             customers.push(details);
         }
-        return res.status(200).json({customer:customers});
+
+        return res.status(200).json({ customer: customers });
+    } catch (e) {
+        return res.status(500).json({ status: "Something went wrong", error: e });
     }
-    catch(e) {
-        return res.status(500).json({status:"Something went wrong",error:e});
-    }
-}
+};
