@@ -1,7 +1,6 @@
 const Customer = require("../Schema/customer");
 const punch = require("../Schema/punch");
 const Payment = require("../Schema/payment");
-
 function formatDate(date) {
     let year = date.getFullYear();
     let month = date.getMonth() + 1; 
