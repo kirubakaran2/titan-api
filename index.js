@@ -100,7 +100,7 @@ app.get("/admin/payment", authAdmin, paymentOfAll)
 app.get("/admin/paidusers", authAdmin, paymentOfPaid)
 app.get("/admin/unpaidusers", authAdmin,paymentOfUnpaid)
 app.post("/admin/payment/add", authAdmin, payment)
-app.patch("/admin/payment/edit", authAdmin, paymentEdit)
+app.patch("/admin/payment/:userID", authAdmin, paymentEdit)
 app.get("/admin/payment/:userID", authAdmin, paymentOf)
 app.delete("/admin/payment/:_id", authAdmin, delPay);
 
