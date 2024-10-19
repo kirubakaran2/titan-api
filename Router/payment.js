@@ -187,7 +187,7 @@ exports.paymentOf = async (req, res) => {
 
         // Format the payment history
         const paymentHistory = payments.map(pay => ({
-            PAYMENT_ID: pay._id
+            PAYMENT_ID: pay._id,
             PAYMENT_TYPE: pay.PAYMENT_TYPE,
             PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
             EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
