@@ -49,41 +49,58 @@ exports.intime = async(req,res) => {
     })
 }
 
-exports.outTime = async(req,res) => {
-    const {id} = req.body;
-    let a = new Date();
-    const user = await Customer.findOne({ID:id});
-    if(!user) {
-        return res.status(302).json({status:"User id not found"})
-    }
-    let dateString = `${a.getUTCFullYear()}-${(a.getUTCMonth() + 1).toString().padStart(2, "0")}-${a.getUTCDate().toString().padStart(2, "0")}`;
-    let date = new Date(dateString);
+exports.outTime = async (req, res) => {
+    const { id } = req.body;
+    const now = new Date();
 
-    let Checking = await punch.findOne({CUSTOMER_PROFILE_ID:id, IN_TIME: {$lte: a, $gte: date}, CREATED_DATE: {$lte: a, $gte: date}})
-    if(!Checking) {
-        return res.status(404).json({status:`In time not found for this user ${id}`})
+    // Find user
+    const user = await Customer.findOne({ ID: id });
+    if (!user) {
+        return res.status(404).json({ status: "User ID not found." });
     }
 
-    if(Checking) {
-        if(Checking.OUT_TIME !== null) {
-            return res.status(301).json({status:`Out time already exist for this user ${id}`})
-        }
+    // Create date range for today
+    const dateString = `${now.getUTCFullYear()}-${(now.getUTCMonth() + 1).toString().padStart(2, "0")}-${now.getUTCDate().toString().padStart(2, "0")}`;
+    const date = new Date(dateString);
+
+    // Check if user has punched in
+    const checking = await punch.findOne({
+        CUSTOMER_PROFILE_ID: id,
+        IN_TIME: { $lte: now, $gte: date },
+        CREATED_DATE: { $lte: now, $gte: date }
+    });
+    
+    if (!checking) {
+        return res.status(404).json({ status: `In time not found for user ${id}.` });
     }
 
-    await punch.findOneAndUpdate({CUSTOMER_PROFILE_ID:id, IN_TIME: {$lte: a, $gte: date}},{OUT_TIME:a},{new:true}).
-    then((data) => {
-        let msg = `Punch out from the gym at ${a.getHours()}:${a.getMinutes()}.
+    // Check if out time already exists
+    if (checking.OUT_TIME !== null) {
+        return res.status(400).json({ status: `Out time already exists for user ${id}.` });
+    }
+
+    try {
+        // Update out time
+        await punch.findOneAndUpdate(
+            { CUSTOMER_PROFILE_ID: id, IN_TIME: { $lte: now, $gte: date } },
+            { OUT_TIME: now },
+            { new: true }
+        );
+
+        // Prepare and send message
+        const msg = `You punched out from the gym at ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}.
         
         Keep pushing,
-        Titalfitnessstudio`
-        // messager(msg,user.PHONE,'in time entry message.')
-        return res.status(200).json({status:"Out Time Entry"})
-    }).
-    catch((err) => {
-        return res.status(500).json({status:"Internal Server Error",error:err})
-    });
+        Titanfitnessstudio`;
 
-}
+        await messager(msg, user.PHONE, 'out time entry message.');
+
+        return res.status(200).json({ status: "Out time recorded." });
+    } catch (err) {
+        console.error("Error updating out time or sending message:", err);
+        return res.status(500).json({ status: "Internal Server Error", error: err });
+    }
+};
 
 exports.getIn = async(req,res) => {
     const userId = req.query.userId;

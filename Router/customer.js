@@ -7,25 +7,81 @@ const bcrypt = require("bcryptjs")
 const jwt = require('jsonwebtoken');
 
 
-exports.createUser = async (req,res) => {
-    let {password, name, mobile, email, dob, address, refer, diet} = req.body;
+// exports.createUser = async (req,res) => {
+//     let {password, name, mobile, email, dob, address, refer, diet} = req.body;
     
-    const existUser = await Customer.findOne({EMAIL:email});
-    if(existUser) {
-        return res.status(409).json({status:"Already user exist"})
+//     const existUser = await Customer.findOne({EMAIL:email});
+//     if(existUser) {
+//         return res.status(409).json({status:"Already user exist"})
+//     }
+
+//     let nowDate = new Date()
+//     let oldUser = await Customer.find({}).sort({_id:-1}).limit(1);
+//     let ID = oldUser[0]?.ID;
+    
+//     password = password===undefined ? '1234' : password
+
+//     let encPwd = bcrypt.hashSync(password,5);
+//     const imagePath = req.file ? `image/${req.file.filename}` : null;
+//     try {
+//         const user = await Customer({
+//             ID: ID+1,
+//             IMAGE_PATH: imagePath,
+//             NAME: name,
+//             PHONE: mobile,
+//             EMAIL: email,
+//             DOB: dob,
+//             ADDRESS: address,
+//             REFERENCE: refer,
+//             CREATED_DATE: nowDate,
+//             CREATED_BY:"",
+//             PASSWORD:encPwd,
+//             LAST_MODIFIED_DATE:null,
+//             LAST_MODIFIED_BY:null,
+//             GYM_PROFILE_ID:1,
+//             STATUS:1
+//         });
+
+//         user.save().
+//         then((data) => {
+//             if(diet){
+//                 let msg = `Hello ${user.NAME},
+                
+//                 Welcome aboard! Your account registration was successful. To kickstart your fitness journey, here’s your personalized diet plan: ${diet}. Let's achieve your goals together!
+                
+//                 Cheers,
+//                 Titanfitnessstudio`
+//                 messager(msg,mobile,"diet plan");
+//             }
+//             return res.json({status:"created",userID:ID+1}).status(200)
+//         }).
+//         catch((err) => {
+//             return res.status(301).json({status:"not created", err: err});
+//         })
+//     }
+//     catch(err){
+//         return res.json({status:"error", err: err})
+//     }
+// }
+exports.createUser = async (req, res) => {
+    let { password, name, mobile, email, dob, address, refer, diet } = req.body;
+
+    const existUser = await Customer.findOne({ EMAIL: email });
+    if (existUser) {
+        return res.status(409).json({ status: "User already exists." });
     }
 
-    let nowDate = new Date()
-    let oldUser = await Customer.find({}).sort({_id:-1}).limit(1);
-    let ID = oldUser[0]?.ID;
-    
-    password = password===undefined ? '1234' : password
+    const nowDate = new Date();
+    const oldUser = await Customer.find({}).sort({ _id: -1 }).limit(1);
+    const ID = oldUser[0]?.ID || 0; // Default to 0 if no users exist
 
-    let encPwd = bcrypt.hashSync(password,5);
+    password = password === undefined ? '1234' : password;
+    const encPwd = bcrypt.hashSync(password, 5);
     const imagePath = req.file ? `image/${req.file.filename}` : null;
+
     try {
-        const user = await Customer({
-            ID: ID+1,
+        const user = new Customer({
+            ID: ID + 1,
             IMAGE_PATH: imagePath,
             NAME: name,
             PHONE: mobile,
@@ -34,35 +90,53 @@ exports.createUser = async (req,res) => {
             ADDRESS: address,
             REFERENCE: refer,
             CREATED_DATE: nowDate,
-            CREATED_BY:"",
-            PASSWORD:encPwd,
-            LAST_MODIFIED_DATE:null,
-            LAST_MODIFIED_BY:null,
-            GYM_PROFILE_ID:1,
-            STATUS:1
+            CREATED_BY: "",
+            PASSWORD: encPwd,
+            LAST_MODIFIED_DATE: null,
+            LAST_MODIFIED_BY: null,
+            GYM_PROFILE_ID: 1,
+            STATUS: 1
         });
 
-        user.save().
-        then((data) => {
-            if(diet){
-                let msg = `Hello ${user.NAME},
+        await user.save();
+
+        // Send diet plan message if provided
+        if (diet) {
+            let dietMsg = `Hello ${user.NAME},
                 
-                Welcome aboard! Your account registration was successful. To kickstart your fitness journey, here’s your personalized diet plan: ${diet}. Let's achieve your goals together!
-                
-                Cheers,
-                Titanfitnessstudio`
-                messager(msg,mobile,"diet plan");
-            }
-            return res.json({status:"created",userID:ID+1}).status(200)
-        }).
-        catch((err) => {
-            return res.status(301).json({status:"not created", err: err});
-        })
+            Welcome aboard! Your account registration was successful. To kickstart your fitness journey, here’s your personalized diet plan: ${diet}. Let's achieve your goals together!
+            
+            Cheers,
+            Titanfitnessstudio`;
+            await messager(dietMsg, mobile, "diet plan");
+        }
+        let rulesMsg = `Hello ${user.NAME},
+
+        Welcome to The Titans Fitness Studio! Please review our policies:
+        1. No Refundable.
+        2. Twice sessions of workout will double the fees applicable.
+        3. Maximum timing of workout be “1 hour” allowed.
+        4. Use separate shoes for indoor purposes of workout.
+        5. Compulsory use of sweat towel during workout.
+        6. Settle the weight and dumbbells in rack after use.
+        7. Don’t train other gym mates without master knowledge.
+        8. Pay the fees on time.
+        9. Handle the equipment and machines gently.
+        10. Management will not be responsible for your belongings.
+        By Admin,
+        Titans Fitness
+
+        THANK YOU`;
+
+        await messager(rulesMsg, mobile, "welcome message");
+
+        return res.status(200).json({ status: "User created", userID: ID + 1 });
+    } catch (err) {
+        console.error("Error creating user:", err);
+        return res.status(500).json({ status: "Error", err: err });
     }
-    catch(err){
-        return res.json({status:"error", err: err})
-    }
-}
+};
+
 
 exports.edit = async(req,res) => {
     const id = req.params.userId;

@@ -115,41 +115,48 @@ exports.payment = async (req, res) => {
 
 
 
-exports.paymentEdit = async(req,res) => {
-    let {id,amount,end,balance} = req.body;
-    if(!id || !amount || !end || balance===undefined) {
-        return res.status(404).json({status:"All the fields are required like customer id, amount, payment type, effective date, end date and balance."})
+exports.paymentEdit = async (req, res) => {
+    const { userID } = req.params; // Assuming you're using userID from the request parameters
+    const { paymentId, amount, end, balance } = req.body;
+
+    if (!paymentId || !amount || !end || balance === undefined) {
+        return res.status(404).json({
+            status: "All fields are required: payment id, amount, end date, and balance."
+        });
     }
 
     try {
-        let now = new Date();
-
-        if(typeof(end) === "string") {
-            end = new Date(end)
+        // Find the user
+        const user = await Customer.findOne({ ID: userID });
+        if (!user) {
+            return res.status(404).json({ status: "User not found." });
         }
 
-        let thisMonth = TimeMonth(now);
-        let PrevMonth = TimeNextMonth(now);
+        // Find the payment by paymentId
+        let payment = await Payment.findOne({
+            _id: paymentId,
+            CUSTOMER_PROFILE_ID: userID
+        });
 
-        let tmp = await Payment.find({CUSTOMER_PROFILE_ID:id, PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth}});
-        if(tmp.length==0) {
-            return res.status(404).json({status:"No payment details"})
-        }
-        if(tmp.length > 1) {
-            return res.status(301).json({status:`So many payment added for this ${id}. So can't edit for this user.`})
+        if (!payment) {
+            return res.status(404).json({ status: "Payment not found." });
         }
 
-        await Payment.findOneAndUpdate({CUSTOMER_PROFILE_ID:id, PAYMENT_DATE: { $gte: thisMonth, $lte: PrevMonth}}, { PAYMENT_AMOUNT: amount, END_DATE:end, PAYMENT_BALANCE:balance},{new:true})
-        .then((data) => {
-            return res.status(200).json({status:`Payment edited for this user ${id}`, payment: data})
-        }).catch((err) => {
-            return res.status(500).json({status:"Internal Server Error", error:err})
-        })
+        // Update the specified payment
+        payment.PAYMENT_AMOUNT = amount;
+        payment.END_DATE = new Date(end);
+        payment.PAYMENT_BALANCE = balance;
+
+        await payment.save();
+
+        return res.status(200).json({ status: `Payment edited for user ${userID}`, payment });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ status: "Internal Server Error", error: err.message });
     }
-    catch(err) {
-        return res.status(500).json({status:"Internal Server Error", error: err})
-    }
-}
+};
+
+
 // exports.paymentOf = async(req,res) => {
 //     const {userID} = req.params;
 //     console.log(userID);
@@ -187,6 +194,7 @@ exports.paymentOf = async (req, res) => {
 
         // Format the payment history
         const paymentHistory = payments.map(pay => ({
+            PAYMENT_ID: pay._id,
             PAYMENT_TYPE: pay.PAYMENT_TYPE,
             PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
             EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
