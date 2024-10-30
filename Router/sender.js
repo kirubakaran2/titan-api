@@ -1,6 +1,6 @@
 const fetch = require("node-fetch");
 const Message = require("../Schema/messages");
-const Customer = require("../Schema/customer"); // Add this line to import Customer model
+const Customer = require("../Schema/customer");
 
 /**
  * Safely extracts message content from various input types
