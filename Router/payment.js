@@ -115,14 +115,10 @@ exports.payment = async (req, res) => {
 
 
 
-exports.paymentEdit = async (req, res) => {
-    const { userID } = req.params; // Assuming you're using userID from the request parameters
-    const { paymentId, amount, end, balance } = req.body;
-
-    if (!paymentId || !amount || !end || balance === undefined) {
-        return res.status(404).json({
-            status: "All fields are required: payment id, amount, end date, and balance."
-        });
+exports.paymentEdit = async(req,res) => {
+    let {id,amount,end,balance} = req.body;
+    if(!id || !amount || !end || balance===undefined) {
+        return res.status(404).json({status:"All the fields are required like customer id, amount, payment type, effective date, end date and balance."})
     }
 
     try {
