@@ -322,7 +322,18 @@ exports.sendimage = async (message, image, reason, sendToAll = true) => {
                     continue;
                 }
 
-                const cleanPhone = validatePhone(customer.PHONE);
+                let cleanPhone;
+                try {
+                    cleanPhone = validatePhone(customer.PHONE);
+                } catch (error) {
+                    results.push({
+                        phone: customer.PHONE,
+                        name: customer.NAME,
+                        success: false,
+                        error: error.message
+                    });
+                    continue; // Skip to the next customer
+                }
 
                 // Skip if already sent
                 if (sentPhones.has(cleanPhone)) {
