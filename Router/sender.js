@@ -1,6 +1,6 @@
 const fetch = require("node-fetch");
 const Message = require("../Schema/messages");
-const Customer = require("../Schema/customer");
+const Customer = require("../Schema/customer"); // Add this line to import Customer model
 
 /**
  * Safely extracts message content from various input types
@@ -42,6 +42,49 @@ function extractMessageContent(input) {
     }
 
     return 'Message content unavailable';
+}
+
+/**
+ * Safely extracts both message and image content from various input types
+ * @param {any} messageInput - Input message content
+ * @param {any} imageInput - Input image content
+ * @returns {Object} Object containing extracted message and image strings
+ */
+
+function extractimageContent(req) {
+    console.log('Input for extractImageContent:', req); // Debug log
+
+    let message = '';
+    let image = '';
+
+    // Handle Express request object
+    if (req && req.body) {
+        // Extract message
+        if (typeof req.body.message === 'string') {
+            message = req.body.message;
+        }
+        
+        // Extract image
+        if (typeof req.body.image === 'string') {
+            image = req.body.image;
+        }
+    } else if (typeof req === 'string') {
+        // Handle direct string input
+        message = req;
+    } else if (req && typeof req === 'object') {
+        // Handle plain object input
+        if (typeof req.message === 'string') {
+            message = req.message;
+        }
+        if (typeof req.image === 'string') {
+            image = req.image;
+        }
+    }
+
+    return {
+        message: message || 'Message content unavailable',
+        image: image || 'Image content unavailable'
+    };
 }
 
 /**
@@ -240,25 +283,35 @@ async function sendSMSWithRetry(phone, message, reason, retries = 3) {
 
     throw lastError || new Error('Failed to send message after all retries');
 }
+
 /**
- * Sends an image to all active customers or a specific phone number
- * @param {any} image - Image data (e.g. Buffer, base64 string, etc.)
+ * Sends an SMS with an image to all active customers
+ * @param {any} message - Message content
+ * @param {any} image - Image content
  * @param {string} reason - Purpose of the message
- * @param {boolean} [sendToAll=false] - Whether to send to all customers
- * @returns {Promise<{success: boolean, results: Array}>} - Returns success status and results
+ * @param {boolean} [sendToAll=true] - Whether to send to all customers
+ * @returns {Promise<{success: boolean, results: Array, count: number}>} - Returns success status, results, and count of messages sent
  */
-exports.sendimage = async (image, reason, sendToAll = false) => {
+exports.sendimage = async (message, image, reason, sendToAll = true) => {
+    const results = [];
+    const sentPhones = new Set(); // Track sent phone numbers
+    let totalSent = 0; // Count of total messages sent
+
     try {
-        const results = [];
-        const sentPhones = new Set(); // Track sent phone numbers
+        const { message: messageContent, image: imageContent } = extractimageContent(message, image);
+        
+        if (!messageContent || !imageContent) {
+            throw new Error('Invalid message or image content');
+        }
 
         if (sendToAll) {
             // Fetch all active customers
             const customers = await Customer.find({ STATUS: 1 });
             console.log(`Found ${customers.length} active customers`);
 
-            // Send images to all customers
             for (const customer of customers) {
+                console.log(`Processing customer: ${customer.NAME}, Phone: ${customer.PHONE}`); // Debug log
+
                 if (!customer.PHONE) {
                     results.push({
                         phone: 'No phone number',
@@ -269,65 +322,66 @@ exports.sendimage = async (image, reason, sendToAll = false) => {
                     continue;
                 }
 
-                if (sentPhones.has(customer.PHONE)) {
-                    continue; // Skip if already sent
+                const cleanPhone = validatePhone(customer.PHONE);
+
+                // Skip if already sent
+                if (sentPhones.has(cleanPhone)) {
+                    console.log(`Skipping duplicate phone number: ${cleanPhone}`);
+                    continue;
                 }
 
                 try {
-                    const cleanPhone = validatePhone(customer.PHONE);
-                    await sendImageWithRetry(cleanPhone, image, reason);
+                    await sendimageWithRetry(cleanPhone, messageContent, imageContent, reason);
                     sentPhones.add(cleanPhone); // Mark as sent
                     results.push({
                         phone: cleanPhone,
                         name: customer.NAME,
                         success: true
                     });
+                    totalSent++; // Increment total sent count
                 } catch (error) {
+                    console.error(`Error sending to ${cleanPhone}: ${error.message}`);
                     results.push({
-                        phone: customer.PHONE,
+                        phone: cleanPhone,
                         name: customer.NAME,
                         success: false,
                         error: error.message
                     });
                 }
+
+                // Throttle requests to avoid overwhelming the API
                 await new Promise(resolve => setTimeout(resolve, 10));
-            }
-        } else {
-            // Send to default number
-            const phoneNumber = "9361222503";
-            if (!sentPhones.has(phoneNumber)) {
-                await sendImageWithRetry(phoneNumber, image, reason);
-                sentPhones.add(phoneNumber);
-                results.push({
-                    phone: phoneNumber,
-                    success: true
-                });
             }
         }
 
         return {
             success: true,
-            results: results
+            results: results,
+            count: totalSent // Include count of messages sent
         };
     } catch (error) {
         console.error(`Error in sendimage: ${error.message}`);
         return {
             success: false,
             error: error.message,
-            results: []
+            results: [],
+            count: totalSent // Return count even on error
         };
     }
 };
 
+
+
 /**
- * Attempts to send an image multiple times before giving up
+ * Attempts to send an SMS multiple times before giving up
  * @param {string} phone - Recipient phone number
- * @param {any} image - Image data (e.g. Buffer, base64 string, etc.)
+ * @param {string} message - Message content
+ * @param {any} image - Message content
  * @param {string} reason - Purpose of the message
  * @param {number} retries - Number of retry attempts
  * @returns {Promise<void>}
  */
-async function sendImageWithRetry(phone, image, reason, retries = 3) {
+async function sendimageWithRetry(phone, message,image, reason, retries = 3) {
     let lastError;
     const cleanPhone = validatePhone(phone);
 
@@ -335,10 +389,11 @@ async function sendImageWithRetry(phone, image, reason, retries = 3) {
         try {
             const requestData = {
                 phone: cleanPhone,
-                image: image
+                message: message,
+                image:image
             };
 
-            console.log(`Attempt ${attempt} - Sending image data:`, requestData);
+            console.log(`Attempt ${attempt} - Sending data:`, requestData);
 
             const response = await fetch("http://54.226.31.192:8080/sendImage", {
                 method: "POST",
@@ -349,16 +404,17 @@ async function sendImageWithRetry(phone, image, reason, retries = 3) {
             });
 
             if (response.ok) {
-                console.log(`Image sent successfully to ${cleanPhone} on attempt ${attempt}`);
+                console.log(`Message sent successfully to ${cleanPhone} on attempt ${attempt}`);
                 return;
             }
 
             const responseText = await response.text();
             lastError = new Error(`HTTP error! status: ${response.status} ${response.statusText}. Response: ${responseText}`);
+            
         } catch (error) {
             lastError = error;
             console.error(`Attempt ${attempt} failed for ${cleanPhone}: ${error.message}`);
-
+            
             if (attempt < retries) {
                 const delay = 1000 * Math.pow(2, attempt - 1); // Exponential backoff
                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -366,5 +422,5 @@ async function sendImageWithRetry(phone, image, reason, retries = 3) {
         }
     }
 
-    throw lastError || new Error('Failed to send image after all retries');
+    throw lastError || new Error('Failed to send image & message after all retries');
 }
