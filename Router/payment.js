@@ -1,5 +1,6 @@
 const Payment = require("../Schema/payment");
 const Customer = require("../Schema/customer")
+const { messager } = require("./sender"); // Ensure the message sender function is imported
 
 function TimeZoneFormat(now) {
     let year = now.getFullYear()
@@ -75,50 +76,73 @@ exports.paymentAt = async(req,res) => {
     }
 }
 
-exports.payment = async (req, res) => {
-    let { id, type, amount, effective, end, balance } = req.body;
 
-    // Check for required fields but allow balance to be 0
-    if (!id || !type || !amount || !effective || !end || (balance === undefined || balance === null)) {
-        return res.status(404).json({
-            status: "All the fields are required like customer id, amount, payment type, effective date, end date, and balance."
+exports.payment = async (req, res) => {
+    const { id, type, amount, effective, end, balance } = req.body;
+
+    // Validate required fields, allowing balance to be 0
+    if (!id || !type || !amount || !effective || !end || balance === undefined || balance === null) {
+        return res.status(400).json({
+            status: "All fields are required: customer ID, payment type, amount, effective date, end date, and balance."
         });
     }
 
     try {
-        let now = new Date();
+        const now = new Date();
 
-        if (typeof (effective) === 'string') {
-            effective = new Date(effective);
-        }
+        // Convert effective and end dates to Date objects if they're strings
+        const effectiveDate = typeof effective === 'string' ? new Date(effective) : effective;
+        const endDate = typeof end === 'string' ? new Date(end) : end;
 
-        if (typeof (end) === "string") {
-            end = new Date(end);
-        }
-
-        const pay = new Payment({
+        // Create a new payment entry
+        const payment = new Payment({
             CUSTOMER_PROFILE_ID: id,
             PAYMENT_TYPE: type,
             PAYMENT_AMOUNT: amount,
-            EFFECTIVE_DATE: effective,
-            END_DATE: end,
+            EFFECTIVE_DATE: effectiveDate,
+            END_DATE: endDate,
             PAYMENT_BALANCE: balance,
             PAYMENT_DATE: now
         });
 
-        await pay.save();
-        return res.status(200).json({ status: `Payment added for this user ${id}` });
+        // Save the payment to the database
+        await payment.save();
+
+        // Fetch the user's phone number
+        const user = await Customer.findOne({ ID: id });
+        if (user) {
+            // Send confirmation message to the user
+            const msg = `Hi ${user.NAME},\n\nYour payment details are as follows:\n` +
+            `- Amount: ₹${amount}\n` + // Use ₹ symbol for Indian Rupees
+            `- Effective Date: ${effectiveDate.toISOString().split('T')[0]}\n` +
+            `- End Date: ${endDate.toISOString().split('T')[0]}\n` +
+            `- Balance: ₹${balance}\n` + // Use ₹ symbol for Balance
+            `- Payment Date: ${now.toISOString().split('T')[0]}\n\n` +
+            `Thank you for your payment! 💪🏋️‍♂️\n\n` + // Adding gym emojis
+            `Have a nice day! ☀️😊\n\n` +
+            `Best regards,\nTitans Fitness Gym`;
+messager(msg, user.PHONE, 'Payment confirmation message.');
+
+
+        }
+
+        return res.status(201).json({ status: `Payment added for user ${id}` });
     } catch (err) {
-        return res.status(500).json({ status: "Internal Server Error", error: err });
+        // console.error(err); // Log the error for debugging
+        return res.status(500).json({ status: "Internal Server Error", error: err.message });
     }
 };
 
 
 
-exports.paymentEdit = async(req,res) => {
-    let {id,amount,end,balance} = req.body;
-    if(!id || !amount || !end || balance===undefined) {
-        return res.status(404).json({status:"All the fields are required like customer id, amount, payment type, effective date, end date and balance."})
+exports.paymentEdit = async (req, res) => {
+    const { userID } = req.params; // Assuming you're using userID from the request parameters
+    const { paymentId, amount, end, balance } = req.body;
+
+    if (!paymentId || !amount || !end || balance === undefined) {
+        return res.status(404).json({
+            status: "All fields are required: payment id, amount, end date, and balance."
+        });
     }
 
     try {
