@@ -126,6 +126,6 @@ app.patch("/measurement/:id", authAdmin,updateMeasurement);
 app.delete("/measurement/:id", authAdmin,deleteMeasurement);
 
 //birthdaywish
-birthdayWishes();
+//birthdayWishes();
 
 app.listen(8080,() => {console.log("Server started")})
