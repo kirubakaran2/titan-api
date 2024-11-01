@@ -86,7 +86,6 @@ exports.outTime = async (req, res) => {
 
         Keep pushing,
         Titanfitnessstudio`;
-
         await messager(msg, user.PHONE, 'out time entry message.');
         return res.status(200).json({ status: "Out time recorded." });
     } catch (err) {
