@@ -38,7 +38,7 @@ exports.intime = async (req, res) => {
         await UserPunch.save();
         const msg = `Hi ${user.NAME},
 
-        Great to see you! You’ve punched in for your workout session at ${now.format("HH:mm")}. Remember, you have 1 hour to crush your goals. Let’s make it count!
+        Great to see you! You’ve punched in for your workout session at ${now.format("hh:mm A")}. Remember, you have 1 hour to crush your goals. Let’s make it count!
 
         Keep pushing,
         Titanfitnessstudio`;
@@ -82,10 +82,11 @@ exports.outTime = async (req, res) => {
             { new: true }
         );
 
-        const msg = `You punched out from the gym at ${now.format("HH:mm")}.
+        const msg = `You punched out from the gym at ${now.format("hh:mm A")}.
 
         Keep pushing,
         Titanfitnessstudio`;
+
         await messager(msg, user.PHONE, 'out time entry message.');
         return res.status(200).json({ status: "Out time recorded." });
     } catch (err) {
@@ -93,6 +94,7 @@ exports.outTime = async (req, res) => {
         return res.status(500).json({ status: "Internal Server Error", error: err });
     }
 };
+
 
 
 exports.getIn = async(req,res) => {
