@@ -73,7 +73,7 @@ exports.createUser = async (req, res) => {
 
     const nowDate = new Date();
     const oldUser = await Customer.find({}).sort({ _id: -1 }).limit(1);
-    const ID = oldUser[0]?.ID || 0; // Default to 0 if no users exist
+    const ID = oldUser[0]?.ID || 0;
 
     password = password === undefined ? '1234' : password;
     const encPwd = bcrypt.hashSync(password, 5);
@@ -99,8 +99,6 @@ exports.createUser = async (req, res) => {
         });
 
         await user.save();
-
-        // Send diet plan message if provided
         if (diet) {
             let dietMsg = `Hello ${user.NAME},
                 
