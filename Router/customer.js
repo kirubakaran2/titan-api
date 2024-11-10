@@ -7,21 +7,21 @@ const bcrypt = require("bcryptjs")
 const jwt = require('jsonwebtoken');
 
 
-
-exports.createUser = async (req, res) => {
-    let { password, name, mobile, email, dob, address, refer, diet } = req.body;
-
-    const existUser = await Customer.findOne({ EMAIL: email });
-    if (existUser) {
-        return res.status(409).json({ status: "User already exists." });
+exports.createUser = async (req,res) => {
+    let {password, name, mobile, email, dob, address, refer, diet} = req.body;
+    
+    const existUser = await Customer.findOne({EMAIL:email});
+    if(existUser) {
+        return res.status(409).json({status:"Already user exist"})
     }
 
-    const nowDate = new Date();
-    const oldUser = await Customer.find({}).sort({ _id: -1 }).limit(1);
-    const ID = oldUser[0]?.ID || 0;
+    let nowDate = new Date()
+    let oldUser = await Customer.find({}).sort({_id:-1}).limit(1);
+    let ID = oldUser[0]?.ID;
+    
+    password = password===undefined ? '1234' : password
 
-    password = password === undefined ? '1234' : password;
-    const encPwd = bcrypt.hashSync(password, 5);
+    let encPwd = bcrypt.hashSync(password,5);
     const imagePath = req.file ? `image/${req.file.filename}` : null;
 
     try {
