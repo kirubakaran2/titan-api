@@ -9,15 +9,18 @@ const {db} = require("./Router/database")
 const {attendAt,monthlyAttendance,eveningAttendance,morningAttendance,search} = require("./Router/attendance")
 const { intime,outTime, getIn, getOut, attendance } = require("./Router/punch")
 const {paymentAt, payment,paymentOf, paymentEdit, delPay, paymentOfAll, paymentOfUnpaid,paymentOfPaid, paymentcount} = require("./Router/payment")
-const {login, admin} = require("./Router/authentication")
+const {login, admin, customerLogin,verifyOtp} = require("./Router/authentication")
 const {authAdmin, authCustomer} = require("./middleware/auth")
 const {dashboard,paymentofUser, punch} = require("./Router/dashboard")
 const {specialoff} = require("./Router/offer")
 const {createMeasurement,getMeasurement,updateMeasurement,deleteMeasurement}= require("./Router/customer")
+const { birthdayWishes } = require('./Router/messages/birthdaywishes');
+const {sendimage, sendsms}=require("./Router/sender");
+
 app.use(express.json())
 app.use(cors({origin:"*"}));
 
-const multer  = require('multer')
+const multer  = require('multer');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
       cb(null, 'uploads/'); 
@@ -100,11 +103,17 @@ app.get("/admin/payment", authAdmin, paymentOfAll)
 app.get("/admin/paidusers", authAdmin, paymentOfPaid)
 app.get("/admin/unpaidusers", authAdmin,paymentOfUnpaid)
 app.post("/admin/payment/add", authAdmin, payment)
-app.patch("/admin/payment/edit", authAdmin, paymentEdit)
+app.patch("/admin/payment/:userID", authAdmin, paymentEdit)
 app.get("/admin/payment/:userID", authAdmin, paymentOf)
 app.delete("/admin/payment/:_id", authAdmin, delPay);
+//messages
+app.post("/send-images",authAdmin, sendimage);
+app.post("/send-sms",authAdmin, sendsms);
+
 
 app.post("/login", login);
+app.post("/customerlogin",customerLogin);
+app.post("/verifyotp",verifyOtp)
 app.post("/admin/user/new",authAdmin, admin)
 
 app.get("/customer/dashboard", authCustomer, dashboard)
@@ -119,5 +128,7 @@ app.get("/measurement/:id", authAdmin,getMeasurement);
 app.patch("/measurement/:id", authAdmin,updateMeasurement);
 app.delete("/measurement/:id", authAdmin,deleteMeasurement);
 
+//birthdaywish
+// birthdayWishes();
 
 app.listen(8080,() => {console.log("Server started")})

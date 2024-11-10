@@ -29,7 +29,7 @@ exports.dashboard = async(req,res) => {
         return res.status(404).json({status:"Unauthorized Access"})
     }
 
-    const info = await Customer.findOne({ID:user.id, EMAIL:user.email, NAME: user.name},{PASSWORD:0,});
+    const info = await Customer.findOne({ID:user.id, NAME: user.name},{PASSWORD:0,});
     if(!info) {
         return res.status(404).json({status:"User not found."})
     }

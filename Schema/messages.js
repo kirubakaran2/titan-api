@@ -1,7 +1,7 @@
 const mongoose = require("mongoose")
 
 const Schema = new mongoose.Schema({
-    phone: Number,
+    phone: String,
     message: String,
     sid: String,
     time: Date,

@@ -1,89 +1,101 @@
-const mongoose = require("mongoose")
-const punch = require("../Schema/punch")
-const Customer = require("../Schema/customer")
-const {messager} = require("./sender")
-const Payment = require("../Schema/payment");
-exports.intime = async(req,res) => {
-    let now = new Date();
-    const {id} = req.body;
-    const user = await Customer.findOne({ID:id});
-    if(!user) {
-        return res.status(404).json({status:"User not found."})
+const mongoose = require("mongoose");
+const punch = require("../Schema/punch");
+const Customer = require("../Schema/customer");
+const { messager } = require("./sender");
+const moment = require("moment-timezone");
+
+exports.intime = async (req, res) => {
+    const { id } = req.body;
+    const user = await Customer.findOne({ ID: id });
+    if (!user) {
+        return res.status(404).json({ status: "User not found." });
     }
 
-    let a = new Date();
-    let dateString = `${a.getUTCFullYear()}-${(a.getUTCMonth() + 1).toString().padStart(2, "0")}-${a.getUTCDate().toString().padStart(2, "0")}`;
-    let date = new Date(dateString);
+    const now = moment().tz("Asia/Kolkata");
+    const dateString = now.format("YYYY-MM-DD");
+    const date = moment(dateString).startOf("day");
 
-    let Checking = await punch.findOne({CUSTOMER_PROFILE_ID:id, IN_TIME: {$lte: a, $gte: date}, CREATED_DATE: {$lte: a, $gte: date}})
+    let Checking = await punch.findOne({
+        CUSTOMER_PROFILE_ID: id,
+        IN_TIME: { $lte: now.toDate(), $gte: date.toDate() },
+        CREATED_DATE: { $lte: now.toDate(), $gte: date.toDate() }
+    });
 
-    if(Checking)
-        return res.json({status:"You already punch in for today."});
-
+    if (Checking) return res.json({ status: "You already punched in for today." });
 
     const UserPunch = new punch({
         CUSTOMER_PROFILE_ID: id,
-        CUSTOMER_NAME:user.NAME,
-        PHONE:user.PHONE,
-        IN_TIME: now,
-        OUT_TIME:null,
-        SLOT:"",
-        PHONE:user.PHONE,
-        CREATED_BY:"",
-        CREATED_DATE: now
+        CUSTOMER_NAME: user.NAME,
+        PHONE: user.PHONE,
+        IN_TIME: now.toDate(),
+        OUT_TIME: null,
+        SLOT: "",
+        CREATED_BY: "",
+        CREATED_DATE: now.toDate()
     });
 
-    UserPunch.save().
-    then(() => {
-        let msg = `Hi ${user.NAME},
-        
-        Great to see you! You’ve punched in for your workout session at ${a.getHours()}:${a.getMinutes()}. Remember, you have 1 hour to crush your goals. Let’s make it count!
-    
+    try {
+        await UserPunch.save();
+        const msg = `Hi ${user.NAME},
+
+        Great to see you! You’ve punched in for your workout session at ${now.format("hh:mm A")}. Remember, you have 1 hour to crush your goals. Let’s make it count!
+
         Keep pushing,
-        Titanfitnessstudio`
-        messager(msg,user.PHONE,'in time entry message.')
-        return res.status(200).json({status:"In time entried."})
-    }).
-    catch(() => {
-        return res.status(500).json({status:"Internal Server Error"})
-    })
-}
-
-exports.outTime = async(req,res) => {
-    const {id} = req.body;
-    let a = new Date();
-    const user = await Customer.findOne({ID:id});
-    if(!user) {
-        return res.status(302).json({status:"User id not found"})
+        Titanfitnessstudio`;
+        messager(msg, user.PHONE, 'in time entry message.');
+        return res.status(200).json({ status: "In time entered." });
+    } catch (error) {
+        return res.status(500).json({ status: "Internal Server Error" });
     }
-    let dateString = `${a.getUTCFullYear()}-${(a.getUTCMonth() + 1).toString().padStart(2, "0")}-${a.getUTCDate().toString().padStart(2, "0")}`;
-    let date = new Date(dateString);
+};
 
-    let Checking = await punch.findOne({CUSTOMER_PROFILE_ID:id, IN_TIME: {$lte: a, $gte: date}, CREATED_DATE: {$lte: a, $gte: date}})
-    if(!Checking) {
-        return res.status(404).json({status:`In time not found for this user ${id}`})
+exports.outTime = async (req, res) => {
+    const { id } = req.body;
+    const now = moment().tz("Asia/Kolkata");
+
+    const user = await Customer.findOne({ ID: id });
+    if (!user) {
+        return res.status(404).json({ status: "User ID not found." });
     }
 
-    if(Checking) {
-        if(Checking.OUT_TIME !== null) {
-            return res.status(301).json({status:`Out time already exist for this user ${id}`})
-        }
-    }
+    const dateString = now.format("YYYY-MM-DD");
+    const date = moment(dateString).startOf("day");
 
-    await punch.findOneAndUpdate({CUSTOMER_PROFILE_ID:id, IN_TIME: {$lte: a, $gte: date}},{OUT_TIME:a},{new:true}).
-    then((data) => {
-        let msg = `Punch out from the gym at ${a.getHours()}:${a.getMinutes()}.
-        
-        Keep pushing,
-        Titalfitnessstudio`
-        // messager(msg,user.PHONE,'in time entry message.')
-        return res.status(200).json({status:"Out Time Entry"})
-    }).
-    catch((err) => {
-        return res.status(500).json({status:"Internal Server Error",error:err})
+    const checking = await punch.findOne({
+        CUSTOMER_PROFILE_ID: id,
+        IN_TIME: { $lte: now.toDate(), $gte: date.toDate() },
+        CREATED_DATE: { $lte: now.toDate(), $gte: date.toDate() }
     });
 
-}
+    if (!checking) {
+        return res.status(404).json({ status: `In time not found for user ${id}.` });
+    }
+
+    if (checking.OUT_TIME !== null) {
+        return res.status(400).json({ status: `Out time already exists for user ${id}.` });
+    }
+
+    try {
+        await punch.findOneAndUpdate(
+            { CUSTOMER_PROFILE_ID: id, IN_TIME: { $lte: now.toDate(), $gte: date.toDate() } },
+            { OUT_TIME: now.toDate() },
+            { new: true }
+        );
+
+        const msg = `You punched out from the gym at ${now.format("hh:mm A")}.
+
+        Keep pushing,
+        Titanfitnessstudio`;
+
+        await messager(msg, user.PHONE, 'out time entry message.');
+        return res.status(200).json({ status: "Out time recorded." });
+    } catch (err) {
+        console.error("Error updating out time or sending message:", err);
+        return res.status(500).json({ status: "Internal Server Error", error: err });
+    }
+};
+
+
 
 exports.getIn = async(req,res) => {
     const userId = req.query.userId;
