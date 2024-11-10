@@ -6,7 +6,6 @@ const {messager} = require("./sender")
 const OtpModel = require('../Schema/otpschema');
 require("dotenv").config();
 const secret = process.env.SECRET || '12345';
-
 exports.login = async(req,res) => {
     let {email,password} = req.body;
     console.log(email,password);
