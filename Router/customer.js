@@ -6,7 +6,6 @@ const {messager} = require("./sender")
 const bcrypt = require("bcryptjs")
 const jwt = require('jsonwebtoken');
 
-
 exports.createUser = async (req,res) => {
     let {password, name, mobile, email, dob, address, refer, diet} = req.body;
     
