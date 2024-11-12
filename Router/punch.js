@@ -3,6 +3,7 @@ const punch = require("../Schema/punch");
 const Customer = require("../Schema/customer");
 const { messager } = require("./sender");
 const moment = require("moment-timezone");
+const Payment = require("../Schema/payment");
 
 exports.intime = async (req, res) => {
     const { id } = req.body;
@@ -20,9 +21,7 @@ exports.intime = async (req, res) => {
         IN_TIME: { $lte: now.toDate(), $gte: date.toDate() },
         CREATED_DATE: { $lte: now.toDate(), $gte: date.toDate() }
     });
-
     if (Checking) return res.json({ status: "You already punched in for today." });
-
     const UserPunch = new punch({
         CUSTOMER_PROFILE_ID: id,
         CUSTOMER_NAME: user.NAME,
@@ -43,11 +42,70 @@ exports.intime = async (req, res) => {
         Keep pushing,
         Titanfitnessstudio`;
         messager(msg, user.PHONE, 'in time entry message.');
+
+        const payments = await Payment.find({ CUSTOMER_PROFILE_ID: id }).sort({ "PAYMENT_DATE": -1 });
+
+        if (payments.length > 0) {
+            const lastPayment = payments[0];
+            const endDate = moment(lastPayment.END_DATE);
+
+            console.log("End Date:", endDate.format("DD-MM-YYYY"));
+
+            const daysLeft = endDate.diff(now, 'days');  
+
+            if (now.isBefore(endDate) && now.isSameOrAfter(endDate.subtract(3, 'days'))) {
+                let reminderMsg;
+
+                if (daysLeft === 1) {
+                    reminderMsg = `Hi ${user.NAME}, 
+
+                    Your payment due date is tomorrow! Kindly make sure to pay your fees before enddate to avoid deactivation.
+
+                    Thank you 😊 and keep pushing 💪🏋️‍♀️
+                    
+                    Titanfitnessstudio`;
+                } else if (daysLeft === 2) {
+                    reminderMsg = `Hi ${user.NAME}, 
+
+                    You have 2 days left to pay your fees! Kindly make sure to pay before enddate to avoid deactivation.
+
+                    Thank you 😊 and keep pushing 💪🏋️‍♀️
+                    
+                    Titanfitnessstudio`;
+                } else {
+                    reminderMsg = `Hi ${user.NAME}, 
+
+                    Your payment due date is approaching! Kindly make sure to pay your fees before ${endDate.format("DD-MM-YYYY")} to avoid deactivation.
+
+                    Thank you 😊 and keep pushing 💪🏋️‍♀️
+                    
+                    Titanfitnessstudio`;
+                }
+
+                console.log("Sending reminder message...");
+                messager(reminderMsg, user.PHONE, 'payment reminder');
+            } else if (now.isAfter(endDate)) {
+                const overdueMsg = `Hi ${user.NAME}, 
+
+                Your payment due date was ${endDate.format("DD-MM-YYYY")}. Kindly make the payment to avoid deactivation of your account.
+
+                Thank you 😊 and keep pushing 💪🏋️‍♀️
+                
+                Titanfitnessstudio`;
+                console.log("Sending overdue message...");
+                messager(overdueMsg, user.PHONE, 'payment overdue warning');
+            }
+        } else {
+            console.log("No payment history found for this user.");
+        }
+
         return res.status(200).json({ status: "In time entered." });
     } catch (error) {
+        console.error("Error:", error);
         return res.status(500).json({ status: "Internal Server Error" });
     }
 };
+
 
 exports.outTime = async (req, res) => {
     const { id } = req.body;
