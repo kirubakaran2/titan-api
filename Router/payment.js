@@ -1,6 +1,6 @@
 const Payment = require("../Schema/payment");
 const Customer = require("../Schema/customer");
-const { messager } = require("./sender"); // Ensure the message sender function is imported
+const { messager } = require("./sender"); 
 
 function TimeZoneFormat(now) {
   let year = now.getFullYear();
@@ -235,13 +235,11 @@ exports.paymentOf = async (req, res) => {
   console.log(userID);
 
   try {
-    // Find the user
     const user = await Customer.findOne({ ID: userID });
     if (!user) {
       return res.status(404).json({ status: "User not found." });
     }
 
-    // Retrieve all payments for the user
     const payments = await Payment.find({ CUSTOMER_PROFILE_ID: userID }).sort({
       PAYMENT_DATE: "asc",
     });
@@ -252,16 +250,41 @@ exports.paymentOf = async (req, res) => {
         .json({ status: "No payments found for the user." });
     }
 
-    // Format the payment history
-    const paymentHistory = payments.map((pay) => ({
-      PAYMENT_ID: pay._id,
-      PAYMENT_TYPE: pay.PAYMENT_TYPE,
-      PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
-      EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
-      END_DATE: pay.END_DATE,
-      PAYMENT_DATE: pay.PAYMENT_DATE,
-      PAYMENT_BALANCE: pay.PAYMENT_BALANCE,
-    }));
+    const today = new Date();
+
+    const updatedPayments = payments.map(async (pay) => {
+      const paymentEndDate = new Date(pay.END_DATE);
+      const isPaid = pay.PAYMENT_BALANCE === 0 && paymentEndDate >= today;
+
+      if (isPaid) {
+        await Payment.updateOne(
+          { _id: pay._id },
+          { $set: { STATUS: "Paid" } } // Mark payment as "Paid" in the database
+        );
+      }
+
+      return {
+        PAYMENT_ID: pay._id,
+        PAYMENT_TYPE: pay.PAYMENT_TYPE,
+        PAYMENT_AMOUNT: pay.PAYMENT_AMOUNT,
+        EFFECTIVE_DATE: pay.EFFECTIVE_DATE,
+        END_DATE: pay.END_DATE,
+        PAYMENT_DATE: pay.PAYMENT_DATE,
+        PAYMENT_BALANCE: pay.PAYMENT_BALANCE,
+        STATUS: isPaid ? "Paid" : "Unpaid", 
+      };
+    });
+
+    const paymentHistory = await Promise.all(updatedPayments);
+
+    const lastPaymentStatus = paymentHistory.length > 0 ? paymentHistory[paymentHistory.length - 1].STATUS : "Unpaid";
+
+    const userPaymentStatus = lastPaymentStatus === "Paid" ? "Paid" : "Unpaid";
+
+    await Customer.updateOne(
+      { ID: userID },
+      { $set: { PAYMENT_STATUS: userPaymentStatus } }
+    );
 
     const response = {
       USER: {
@@ -272,8 +295,8 @@ exports.paymentOf = async (req, res) => {
         EMAIL: user.EMAIL,
         ADDRESS: user.ADDRESS,
         IMAGE_PATH: user.IMAGE_PATH,
-        PAYMENT_STATUS: payments.length > 0 ? "Paid" : "Not paid", // Change status based on payment history
-        PAYMENT_HISTORY: paymentHistory,
+        PAYMENT_STATUS: userPaymentStatus, 
+        PAYMENT_HISTORY: paymentHistory,  
       },
     };
 
@@ -285,6 +308,7 @@ exports.paymentOf = async (req, res) => {
       .json({ status: "An error occurred.", error: error.message });
   }
 };
+
 
 exports.delPay = async (req, res) => {
   let { _id } = req.params;
