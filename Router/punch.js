@@ -105,8 +105,7 @@ exports.intime = async (req, res) => {
         return res.status(500).json({ status: "Internal Server Error" });
     }
 };
-
-
+
 exports.outTime = async (req, res) => {
     const { id } = req.body;
     const now = moment().tz("Asia/Kolkata");
@@ -152,7 +151,6 @@ exports.outTime = async (req, res) => {
         return res.status(500).json({ status: "Internal Server Error", error: err });
     }
 };
-
 
 
 exports.getIn = async(req,res) => {
