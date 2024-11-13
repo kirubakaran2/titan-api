@@ -104,7 +104,7 @@ exports.payment = async (req, res) => {
       typeof effective === "string" ? new Date(effective) : effective;
     const endDate = typeof end === "string" ? new Date(end) : end;
 
-    // Create a new payment entry
+    
     const payment = new Payment({
       CUSTOMER_PROFILE_ID: id,
       PAYMENT_TYPE: type,
