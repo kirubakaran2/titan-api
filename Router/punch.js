@@ -87,7 +87,7 @@ exports.intime = async (req, res) => {
             } else if (now.isAfter(endDate)) {
                 const overdueMsg = `Hi ${user.NAME}, 
 
-                Your payment due date was ${endDate.format("DD-MM-YYYY")}. Kindly make the payment to avoid deactivation of your account.
+                Your payment due date was ${endDate.format("DD-MM-YYYY")}. Kindly make the payment to avoid deactivation of your id.
 
                 Thank you 😊 and keep pushing 💪🏋️‍♀️
                 
