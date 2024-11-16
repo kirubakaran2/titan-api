@@ -1,5 +1,5 @@
 const Customer = require("../../Schema/customer");
-const { messager } = require("../sender"); 
+const { messager } = require("../sender");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
 
@@ -8,11 +8,12 @@ const birthdayWishes = async () => {
     const todayDateString = `${today.getUTCMonth() + 1}-${today.getUTCDate()}`;
 
     try {
-        const users = await Customer.find(); 
+        const users = await Customer.find();
 
-        users.forEach(async (user) => {
+        for (const user of users) {
             const dob = new Date(user.DOB);
             const dobDateString = `${dob.getUTCMonth() + 1}-${dob.getUTCDate()}`;
+            
             if (dobDateString === todayDateString) {
                 if (!user.lastBirthdayWishSent || new Date(user.lastBirthdayWishSent).toDateString() !== today.toDateString()) {
                     const msg = `Happy Birthday, ${user.NAME}! 🎉🎂
@@ -24,15 +25,17 @@ const birthdayWishes = async () => {
 
                     await messager(msg, user.PHONE, 'birthday wish');
                     console.log(`Sent birthday wish to: ${user.NAME}`);
+                    
                     user.lastBirthdayWishSent = today;
                     await user.save();
                 }
             }
-        });
+        }
     } catch (err) {
         console.error("Error sending birthday wishes:", err);
     }
 };
+
 cron.schedule("0 9 * * *", () => {
     console.log("Running daily birthday wish check...");
     birthdayWishes();
