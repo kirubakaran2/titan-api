@@ -42,9 +42,11 @@ const birthdayWishes = async () => {
         console.error("Error sending birthday wishes:", err);
     }
 };
-cron.schedule("5 9 * * *", () => {
+
+cron.schedule("30 3 * * *", () => {
     console.log("Running daily birthday wish check...");
     sentBirthdayNumbers.clear();
     birthdayWishes();
 });
+
 exports.birthdayWishes = birthdayWishes;
