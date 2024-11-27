@@ -127,8 +127,15 @@ app.post("/measurement", authAdmin,createMeasurement);
 app.get("/measurement/:id", authAdmin,getMeasurement);
 app.patch("/measurement/:id", authAdmin,updateMeasurement);
 app.delete("/measurement/:id", authAdmin,deleteMeasurement);
-
+app.get("/admin/date", (req, res) => {
+  // Get the current date
+const currentDate = new Date();
+  res.json({
+      message: "Current Date and Time",
+      date: currentDate.toISOString(),
+  });
+});
 //birthdaywish
-// birthdayWishes();
+birthdayWishes();
 
 app.listen(8080,() => {console.log("Server started")})
