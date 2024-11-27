@@ -128,14 +128,20 @@ app.get("/measurement/:id", authAdmin,getMeasurement);
 app.patch("/measurement/:id", authAdmin,updateMeasurement);
 app.delete("/measurement/:id", authAdmin,deleteMeasurement);
 app.get("/admin/date", (req, res) => {
-  // Get the current date
-const currentDate = new Date();
-  res.json({
-      message: "Current Date and Time",
-      date: currentDate.toISOString(),
-  });
+    // Get the current date
+    const currentDate = new Date();
+    
+    // Log the current server time (Local)
+    console.log("Current Server Time (Local):", currentDate.toString());
+    
+    // Send the current date back in the response
+    res.json({
+        message: "Current Server Time",
+        time: currentDate.toString()
+    });
 });
+
 //birthdaywish
-birthdayWishes();
+//birthdayWishes();
 
 app.listen(8080,() => {console.log("Server started")})
